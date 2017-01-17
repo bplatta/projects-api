@@ -4,23 +4,6 @@ import (
     "gopkg.in/redis.v5"
 )
 
-type DBOptions struct {
-    Address string
-    Port string
-    PoolSize int
-    Password string
-}
-
-func GetDBClient(o *DBOptions) func() redis.Client {
-    return func() redis.Client {
-        return redis.NewClient(&redis.Options{
-            Addr: o.Address + ":" + o.Port,
-            Password: o.Password,
-            PoolSize: o.PoolSize,
-        })
-    }
-}
-
 type ConnHandler struct {
     Client redis.Client
 }

@@ -1,55 +1,85 @@
-package gopiapi
+package main
 
 import (
-    "net/http"
-    "github.com/gorilla/mux"
-    "github.com/bplatta/projects-api/projects"
+	"github.com/bplatta/projects-api/projects"
+	"github.com/gorilla/mux"
+	"net/http"
 )
 
 type Route struct {
-    Name string
-    Method string
-    Pattern string
-    HandlerFunc func(db projects.DB) http.HandlerFunc
+	Name        string
+	Method      string
+	Pattern     string
+	HandlerFunc func(db *projects.DB) func(http.ResponseWriter, *http.Request)
 }
 
 type Routes []Route
 
 /*
-    Define Routes
-        Handlers defined in handlers.go
- */
+   Define Routes
+       Handlers defined in handlers.go
+*/
 var routes = Routes{
-    Route{
-        "ListModels",
-        "GET",
-        "/models",
-        ListProjects,
-    },
-    Route{
-        "ReadModel",
-        "GET",
-        "/models/{name}/",
-        ReadProject,
-    },
-    Route{
-        "CreateModel",
-        "POST",
-        "/models",
-        CreateProject,
-    },
-    Route{
-        "UpdateModel",
-        "POST",
-        "/models/{name}/",
-        UpdateProject,
-    },
-    Route{
-        "DeleteModel",
-        "DELETE",
-        "/models/{name}/",
-        DeleteProject,
-    },
+	Route{
+		"ListProjects",
+		"GET",
+		"/projects/",
+		ListProjects,
+	},
+	Route{
+		"ListProjects",
+		"GET",
+		"/projects",
+		ListProjects,
+	},
+	Route{
+		"ReadProject",
+		"GET",
+		"/projects/{name}/",
+		ReadProject,
+	},
+	Route{
+		"ReadProject",
+		"GET",
+		"/projects/{name}",
+		ReadProject,
+	},
+	Route{
+		"CreateProject",
+		"POST",
+		"/projects/",
+		CreateProject,
+	},
+	Route{
+		"CreateProject",
+		"POST",
+		"/projects",
+		CreateProject,
+	},
+	Route{
+		"UpdateProject",
+		"POST",
+		"/projects/{name}/",
+		UpdateProject,
+	},
+	Route{
+		"UpdateProject",
+		"POST",
+		"/projects/{name}",
+		UpdateProject,
+	},
+	Route{
+		"DeleteProject",
+		"DELETE",
+		"/projects/{name}/",
+		DeleteProject,
+	},
+	Route{
+		"DeleteProject",
+		"DELETE",
+		"/projects/{name}",
+		DeleteProject,
+	},
 }
 
 // GetRouter constructs a gorilla/mux router from
@@ -59,22 +89,22 @@ var routes = Routes{
 // type http.HandlerFunc
 func GetRouter(c Config) *mux.Router {
 
-    router := mux.NewRouter()
-    db := projects.DB{
-        GetClient: projects.GetDBClient(&projects.DBOptions{
-            Address: c.RedisHost,
-            Port: c.RedisPort,
-            Password: c.RedisPassword,
-            PoolSize: c.RedisPoolSize,
-        }),
-    }
+	router := mux.NewRouter()
+	db := projects.DB{
+        Options: projects.DBOptions{
+            Address:  c.RedisHost,
+			Port:     c.RedisPort,
+			Password: c.RedisPassword,
+			PoolSize: c.RedisPoolSize,
+		},
+	}
 
-    for _, route := range routes {
-        router.
-            HandleFunc(route.Pattern, route.HandlerFunc(&db)).
-            Name(route.Name).
-            Methods(route.Method);
-    }
+	for _, route := range routes {
+		router.
+			HandleFunc(route.Pattern, route.HandlerFunc(&db)).
+			Name(route.Name).
+			Methods(route.Method)
+	}
 
-    return &router
+	return router
 }

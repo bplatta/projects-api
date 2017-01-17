@@ -1,7 +1,8 @@
 package projects
 
 type ProjectStats struct {
-
+    accuracy float32
+    precision float32
 }
 
 type Project struct {

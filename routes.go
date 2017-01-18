@@ -91,8 +91,8 @@ func GetRouter(c Config) *mux.Router {
 
 	router := mux.NewRouter()
 	db := projects.DB{
-        Options: projects.DBOptions{
-            Address:  c.RedisHost,
+		Options: projects.DBOptions{
+			Address:  c.RedisHost,
 			Port:     c.RedisPort,
 			Password: c.RedisPassword,
 			PoolSize: c.RedisPoolSize,

@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/bplatta/projects-api/projects"
-	"github.com/gorilla/mux"
 	"net/http"
 )
 
@@ -10,7 +9,7 @@ type Route struct {
 	Name        string
 	Method      string
 	Pattern     string
-	HandlerFunc func(db *projects.DB) func(http.ResponseWriter, *http.Request)
+	Handler func(db *projects.DB, L Logger) http.Handler
 }
 
 type Routes []Route
@@ -80,31 +79,16 @@ var routes = Routes{
 		"/projects/{name}",
 		DeleteProject,
 	},
-}
-
-// GetRouter constructs a gorilla/mux router from
-// routes var in the global scope. Requires a gopiapi.Config
-// struct for configuration details. All Handlers
-// are expected to accept a DB pointer and return a func of
-// type http.HandlerFunc
-func GetRouter(c Config) *mux.Router {
-
-	router := mux.NewRouter()
-	db := projects.DB{
-        Options: projects.DBOptions{
-            Address:  c.RedisHost,
-			Port:     c.RedisPort,
-			Password: c.RedisPassword,
-			PoolSize: c.RedisPoolSize,
-		},
-	}
-
-	for _, route := range routes {
-		router.
-			HandleFunc(route.Pattern, route.HandlerFunc(&db)).
-			Name(route.Name).
-			Methods(route.Method)
-	}
-
-	return router
+	Route{
+		"SnapshotDB",
+		"POST",
+		"/snapshot/",
+		SnapshotDB,
+	},
+	Route{
+		"SnapshotDB",
+		"POST",
+		"/snapshot",
+		SnapshotDB,
+	},
 }

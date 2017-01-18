@@ -79,8 +79,6 @@ func (db *DB) List() (*[]Project, error) {
     var projectsList []Project
     projectSet, err := c.SMembers("projects").Result()
 
-
-
     if err != nil {
         return nil, &CRUDError{
             message: "DB ERROR: Projects SET DNE",

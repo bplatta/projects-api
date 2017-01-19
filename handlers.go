@@ -21,6 +21,7 @@ func ListProjects(db *projects.DB, L Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if projectList, err := db.List(); err != nil {
 			// 503
+
 			w.WriteHeader(http.StatusServiceUnavailable)
 			handleError(err, w)
 		} else {

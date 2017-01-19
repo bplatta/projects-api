@@ -14,6 +14,7 @@ func GetRouter(c Config) *mux.Router {
 
 	router := mux.NewRouter()
 	logger := Logger{Level: c.LogLevel}
+	logger.Setup() // remove default flags
 	db := projects.DB{
 		Options: projects.DBOptions{
 			Address:  c.RedisHost,

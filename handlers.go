@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+    "errors"
 	"github.com/bplatta/projects-api/projects"
 	"github.com/gorilla/mux"
 	"io"
@@ -22,9 +23,7 @@ type ProjectListResp struct {
 // Lists the available endpoints and accepted methods
 func ListRoutesRoot(routes map[string][]string) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-        w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(routes)
+        asJSONResponse(w, routes, http.StatusOK)
     })
 }
 
@@ -34,20 +33,14 @@ func ListRoutesRoot(routes map[string][]string) http.Handler {
 // handler with DB closure
 func ListProjects(db *projects.DB, L Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		if projectList, err := db.List(); err != nil {
-			// 503
-			w.WriteHeader(http.StatusServiceUnavailable)
-			handleError(err, w)
+			handleError(err, w, http.StatusServiceUnavailable) // 503
 		} else {
-			w.WriteHeader(http.StatusOK)
             finalResp := map[string]interface{}{
                 "count": len(*projectList),
                 "projects": *projectList,
             }
-			if err := json.NewEncoder(w).Encode(finalResp); err != nil {
-				panic(err)
-			}
+            asJSONResponse(w, finalResp, http.StatusOK)
 		}
 	})
 }
@@ -58,45 +51,40 @@ func ListProjects(db *projects.DB, L Logger) http.Handler {
 func ReadProject(db *projects.DB, L Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		n := mux.Vars(r)["name"]
-        w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-        e := json.NewEncoder(w)
 		if project, err := db.Read(n); err != nil {
-			// 503
-			w.WriteHeader(http.StatusServiceUnavailable)
-			handleError(err, w)
+			handleError(err, w, http.StatusServiceUnavailable) // 503
 		} else {
 
             if project == nil {
-                w.WriteHeader(http.StatusNotFound)
-                e.Encode(
-                    map[string]string{
-                        "error": fmt.Sprintf("Project with name `%s` does not exist", n),
-                    })
-                return
+                handleError(
+                    errors.New(
+                        fmt.Sprintf("Project with name `%s` does not exist", n)),
+                    w, http.StatusNotFound)
             } else {
-                w.WriteHeader(http.StatusOK)
-                e.Encode(*project)
+                asJSONResponse(w, *project, http.StatusOK)
             }
 		}
 	})
 }
 
 // CreateProject handles POST request for a new project.
-// All Handlers accept a DB struct and return handler with DB closure
+// All Handlers accept a DB struct and return handler with DB closure. Required params: "name"
 func CreateProject(db *projects.DB, L Logger) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proj, err := convertBodyToProject(r)
+
         if err != nil {
-			w.WriteHeader(http.StatusUnprocessableEntity)
-            w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-			handleError(err, w)
+			handleError(err, w, http.StatusUnprocessableEntity)
 			return
 		}
 
+        if proj.Name == "" {
+            handleError(errors.New("Missing required field: `name`"), w, http.StatusBadRequest)
+            return
+        }
+
 		if err := db.Create(proj); err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-            w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-			handleError(err, w)
+			handleError(err, w, http.StatusServiceUnavailable)
 		} else {
 			w.WriteHeader(http.StatusCreated)
 		}
@@ -111,9 +99,7 @@ func UpdateProject(db *projects.DB, L Logger) http.Handler {
 		proj, err := convertBodyToProject(r)
 
         if err != nil {
-			w.WriteHeader(http.StatusUnprocessableEntity)
-            w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-            handleError(err, w)
+            handleError(err, w, http.StatusUnprocessableEntity)
 			return
 		}
 
@@ -121,8 +107,7 @@ func UpdateProject(db *projects.DB, L Logger) http.Handler {
 		n := params["name"]
 
 		if err := db.Update(n, proj); err != nil {
-			w.WriteHeader(getStatusForError(err.(projects.StatusError)))
-			handleError(err, w)
+			handleError(err, w, getStatusForError(err.(projects.StatusError)))
 		} else {
 			w.WriteHeader(http.StatusAccepted)
 		}
@@ -137,9 +122,7 @@ func DeleteProject(db *projects.DB, L Logger) http.Handler {
 		n := params["name"]
 
 		if err := db.Delete(n); err != nil {
-			w.WriteHeader(getStatusForError(err.(projects.StatusError)))
-			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-			handleError(err, w)
+			handleError(err, w, getStatusForError(err.(projects.StatusError)))
 		} else {
 			w.WriteHeader(http.StatusNoContent)
 		}
@@ -156,22 +139,30 @@ func SnapshotDB(db *projects.DB, L Logger) http.Handler {
     Route Handler helpers for managing errors bubbled up
  */
 
-// handleError writes error as JSON to http.ResponseWrite.
-// If parsing error as JSON fails, panic occurs.
-func handleError(err error, w http.ResponseWriter) {
-    if encodeError := json.NewEncoder(w).Encode(err); encodeError != nil {
+func asJSONResponse(w http.ResponseWriter, data interface{}, status int) {
+    w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+    w.WriteHeader(status)
+    if encodeError := json.NewEncoder(w).Encode(data); encodeError != nil {
         panic(encodeError)
     }
-    return
+}
+
+// handleError writes error as JSON to http.ResponseWrite.
+// If parsing error as JSON fails, panic occurs.
+func handleError(err error, w http.ResponseWriter, status int) {
+    errData := map[string]string{
+        "error": err.Error(),
+    }
+    asJSONResponse(w, errData, status)
 }
 
 // getStatusForError maps a projects pkg error to status code int
 // based on whether error is result of callee or Internal
 func getStatusForError(err projects.StatusError) int {
-    if err.IsCallerError() {
-        return http.StatusBadRequest
-    } else {
+    if err.IsServerError() {
         return http.StatusInternalServerError
+    } else {
+        return http.StatusBadRequest
     }
 }
 

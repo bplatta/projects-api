@@ -32,7 +32,7 @@ func (p *Project) SetStats(s ProjectStats) {
 }
 
 func (p *Project) ToMap() map[string]string {
-    var m map[string]string
+    m := make(map[string]string)
 
     m["name"] = p.Name
     m["model"] = p.Model

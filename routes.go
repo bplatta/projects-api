@@ -14,6 +14,34 @@ type Route struct {
 
 type Routes []Route
 
+var AllRoutes = map[string][]string{
+	"/projects/": []string{"GET", "POST"},
+	"/projects/{name}/": []string{"GET", "POST", "DELETE"},
+	"/snapshot/": []string{"POST"},
+}
+
+func getFinalChar(s string) string {
+	return string(s[len(s) - 1])
+}
+
+func WithTrailingSlash(rts Routes) Routes {
+	var finalRoutes Routes
+
+	for _, r := range rts {
+		finalRoutes = append(finalRoutes, r)
+
+		if getFinalChar(r.Pattern) != "/" {
+			finalRoutes = append(finalRoutes, Route{
+				Name: r.Name,
+				Method: r.Method,
+				Pattern: r.Pattern + "/",
+				Handler: r.Handler,
+			})
+		}
+	}
+	return finalRoutes
+}
+
 /*
    Define Routes
        Handlers defined in handlers.go
@@ -22,20 +50,8 @@ var routes = Routes{
 	Route{
 		"ListProjects",
 		"GET",
-		"/projects/",
-		ListProjects,
-	},
-	Route{
-		"ListProjects",
-		"GET",
 		"/projects",
 		ListProjects,
-	},
-	Route{
-		"ReadProject",
-		"GET",
-		"/projects/{name}/",
-		ReadProject,
 	},
 	Route{
 		"ReadProject",
@@ -46,44 +62,20 @@ var routes = Routes{
 	Route{
 		"CreateProject",
 		"POST",
-		"/projects/",
-		CreateProject,
-	},
-	Route{
-		"CreateProject",
-		"POST",
 		"/projects",
 		CreateProject,
 	},
 	Route{
 		"UpdateProject",
 		"POST",
-		"/projects/{name}/",
-		UpdateProject,
-	},
-	Route{
-		"UpdateProject",
-		"POST",
 		"/projects/{name}",
 		UpdateProject,
 	},
 	Route{
 		"DeleteProject",
 		"DELETE",
-		"/projects/{name}/",
-		DeleteProject,
-	},
-	Route{
-		"DeleteProject",
-		"DELETE",
 		"/projects/{name}",
 		DeleteProject,
-	},
-	Route{
-		"SnapshotDB",
-		"POST",
-		"/snapshot/",
-		SnapshotDB,
 	},
 	Route{
 		"SnapshotDB",

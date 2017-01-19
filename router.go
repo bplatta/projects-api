@@ -24,9 +24,7 @@ func GetRouter(c Config) *mux.Router {
 		},
 	}
 
-
-
-	for _, route := range routes {
+	for _, route := range WithTrailingSlash(routes) {
 		// Pass DB reference and Logger to the Handler
 		router.
 			Handle(
@@ -35,6 +33,12 @@ func GetRouter(c Config) *mux.Router {
 			Name(route.Name).
 			Methods(route.Method)
 	}
+
+	// Add / Root endpoint help
+	router.
+		Handle("/", LogRequestMiddleware(logger, ListRoutesRoot(AllRoutes))).
+		Name("Root").
+		Methods("GET")
 
 	return router
 }

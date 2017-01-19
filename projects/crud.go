@@ -69,6 +69,10 @@ func (db *DB) Read(name string) (*Project, error) {
         }
     } else {
         var p Project
+        if data["name"] == "" {
+            return nil, nil
+        }
+
         p.SetFromData(data)
         return &p, nil
     }

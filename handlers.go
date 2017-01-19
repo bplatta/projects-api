@@ -7,11 +7,26 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+    "fmt"
 )
+
+type ProjectListResp struct {
+    Count int `json:"count"`
+    Projects []projects.Project `json:"projects"`
+}
 
 /**
     API Routes
  */
+
+// Lists the available endpoints and accepted methods
+func ListRoutesRoot(routes map[string][]string) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(routes)
+    })
+}
 
 // ListProjects handles /projects/ route and retrieves the current
 // projects, responding with JSON content-type. Panics if
@@ -19,18 +34,21 @@ import (
 // handler with DB closure
 func ListProjects(db *projects.DB, L Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		if projectList, err := db.List(); err != nil {
 			// 503
-
 			w.WriteHeader(http.StatusServiceUnavailable)
 			handleError(err, w)
 		} else {
 			w.WriteHeader(http.StatusOK)
-			if err := json.NewEncoder(w).Encode(projectList); err != nil {
+            finalResp := map[string]interface{}{
+                "count": len(*projectList),
+                "projects": *projectList,
+            }
+			if err := json.NewEncoder(w).Encode(finalResp); err != nil {
 				panic(err)
 			}
 		}
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	})
 }
 
@@ -40,18 +58,25 @@ func ListProjects(db *projects.DB, L Logger) http.Handler {
 func ReadProject(db *projects.DB, L Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		n := mux.Vars(r)["name"]
-
+        w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+        e := json.NewEncoder(w)
 		if project, err := db.Read(n); err != nil {
 			// 503
 			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 			handleError(err, w)
 		} else {
-			w.WriteHeader(http.StatusOK)
-			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-			if err := json.NewEncoder(w).Encode(project); err != nil {
-				panic(err)
-			}
+
+            if project == nil {
+                w.WriteHeader(http.StatusNotFound)
+                e.Encode(
+                    map[string]string{
+                        "error": fmt.Sprintf("Project with name `%s` does not exist", n),
+                    })
+                return
+            } else {
+                w.WriteHeader(http.StatusOK)
+                e.Encode(*project)
+            }
 		}
 	})
 }
@@ -61,16 +86,16 @@ func ReadProject(db *projects.DB, L Logger) http.Handler {
 func CreateProject(db *projects.DB, L Logger) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proj, err := convertBodyToProject(r)
-		if err != nil {
+        if err != nil {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+            w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 			handleError(err, w)
 			return
 		}
 
 		if err := db.Create(proj); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+            w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 			handleError(err, w)
 		} else {
 			w.WriteHeader(http.StatusCreated)
@@ -84,10 +109,11 @@ func CreateProject(db *projects.DB, L Logger) http.Handler {
 func UpdateProject(db *projects.DB, L Logger) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proj, err := convertBodyToProject(r)
-		if err != nil {
+
+        if err != nil {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-			handleError(err, w)
+            w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+            handleError(err, w)
 			return
 		}
 
@@ -96,7 +122,6 @@ func UpdateProject(db *projects.DB, L Logger) http.Handler {
 
 		if err := db.Update(n, proj); err != nil {
 			w.WriteHeader(getStatusForError(err.(projects.StatusError)))
-			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 			handleError(err, w)
 		} else {
 			w.WriteHeader(http.StatusAccepted)
